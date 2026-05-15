@@ -98,10 +98,14 @@ form.addEventListener("submit", async (event) => {
       }),
     });
 
-    const payload = await response.json();
+    const payload = await readJsonResponse(response);
     if (!response.ok) {
       resultArea.hidden = true;
-      throw new Error(payload.error || "Nao foi possivel traduzir o documento.");
+      throw new Error(
+        payload.error ||
+          payload.message ||
+          `Nao foi possivel traduzir o documento. Codigo ${response.status}.`,
+      );
     }
 
     const blob = base64ToBlob(payload.base64, payload.mimeType);
@@ -127,4 +131,12 @@ function base64ToBlob(base64, mimeType) {
     bytes[index] = binary.charCodeAt(index);
   }
   return new Blob([bytes], { type: mimeType });
+}
+
+async function readJsonResponse(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
