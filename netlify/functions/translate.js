@@ -1,16 +1,16 @@
 import JSZip from "jszip";
 import OpenAI from "openai";
-
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const model = process.env.OPENAI_MODEL || "gpt-5.2";
+let openaiClient;
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 };
+const pdfMime = "application/pdf";
 
 export default async (request) => {
   if (request.method !== "POST") {
@@ -41,11 +41,19 @@ export default async (request) => {
       });
     }
 
+    if (extension === "pdf") {
+      const output = await translatePdfFile(input, targetLanguage);
+      return json({
+        fileName: outputName(fileName, targetLanguage),
+        mimeType: pdfMime,
+        base64: Buffer.from(output).toString("base64"),
+      });
+    }
+
     if (!["docx", "pptx", "xlsx"].includes(extension)) {
       return json(
         {
-          error:
-            "Nesta versao ja traduzimos DOCX, PPTX, XLSX e TXT. PDF fica para a fase seguinte com processamento proprio de layout.",
+          error: "Formato ainda nao suportado. Use PDF, DOCX, PPTX, XLSX ou TXT.",
         },
         415,
       );
@@ -88,6 +96,89 @@ async function translateOfficeFile(buffer, extension, targetLanguage) {
     compression: "DEFLATE",
     compressionOptions: { level: 6 },
   });
+}
+
+async function translatePdfFile(buffer, targetLanguage) {
+  const bytes = new Uint8Array(buffer);
+  const sourcePdf = await pdfjsLib.getDocument({
+    data: bytes,
+    disableFontFace: true,
+    isEvalSupported: false,
+    useWorkerFetch: false,
+  }).promise;
+
+  const outputPdf = await PDFDocument.create();
+  const sourceForEmbedding = await PDFDocument.load(buffer);
+  const embeddedPages = await outputPdf.embedPdf(
+    buffer,
+    Array.from({ length: sourceForEmbedding.getPageCount() }, (_, index) => index),
+  );
+  const font = await outputPdf.embedFont(StandardFonts.Helvetica);
+  let translatedCount = 0;
+
+  for (let pageIndex = 0; pageIndex < sourcePdf.numPages; pageIndex += 1) {
+    const pdfPage = await sourcePdf.getPage(pageIndex + 1);
+    const viewport = pdfPage.getViewport({ scale: 1 });
+    const page = outputPdf.addPage([viewport.width, viewport.height]);
+    page.drawPage(embeddedPages[pageIndex], {
+      x: 0,
+      y: 0,
+      width: viewport.width,
+      height: viewport.height,
+    });
+
+    const content = await pdfPage.getTextContent();
+    const items = content.items
+      .filter((item) => typeof item.str === "string" && shouldTranslate(item.str))
+      .map((item) => ({
+        text: item.str,
+        x: item.transform[4],
+        y: item.transform[5],
+        width: Math.max(item.width || 0, 8),
+        height: Math.max(Math.abs(item.height || item.transform[3] || 10), 7),
+      }));
+
+    if (items.length === 0) continue;
+
+    const translations = await translateTexts(
+      items.map((item) => item.text),
+      targetLanguage,
+    );
+    translatedCount += translations.length;
+
+    items.forEach((item, index) => {
+      const text = normalizePdfText(translations[index] || item.text);
+      const fontSize = Math.max(6, Math.min(item.height * 0.92, 14));
+      const translatedWidth = safeTextWidth(font, text, fontSize);
+      const coverWidth = Math.min(
+        viewport.width - item.x,
+        Math.max(item.width, translatedWidth) + 5,
+      );
+
+      page.drawRectangle({
+        x: Math.max(0, item.x - 1),
+        y: Math.max(0, item.y - 2),
+        width: coverWidth,
+        height: item.height + 4,
+        color: rgb(1, 1, 1),
+      });
+      page.drawText(text, {
+        x: item.x,
+        y: item.y,
+        size: fontSize,
+        font,
+        color: rgb(0.05, 0.05, 0.05),
+      });
+    });
+  }
+
+  if (translatedCount === 0) {
+    throw new Error(
+      "Este PDF nao tem texto pesquisavel. Para PDFs digitalizados precisamos de adicionar OCR.",
+    );
+  }
+
+  return outputPdf.save();
 }
 
 function isTranslatableXmlPath(path, extension) {
@@ -134,12 +225,13 @@ function applyTranslations(xml, translations) {
 
 async function translateTexts(texts, targetLanguage) {
   const output = [];
+  const client = getOpenAIClient();
   for (const chunk of chunkTexts(texts)) {
     const response = await client.responses.create({
       model,
       instructions:
-        "You translate document text. Preserve numbers, placeholders, punctuation, whitespace intent, and formatting markers. Return only a JSON array of strings with the same length and order as the input.",
-      input: `Translate every item to ${targetLanguage}. Keep product names and URLs unchanged when appropriate.\n\n${JSON.stringify(
+        "You translate document text. Preserve numbers, placeholders, punctuation, whitespace intent, formatting markers, proper names, addresses, company names, tax IDs, invoice IDs, and URLs when appropriate. Return only a JSON array of strings with the same length and order as the input.",
+      input: `Translate every item to ${targetLanguage}.\n\n${JSON.stringify(
         chunk,
       )}`,
     });
@@ -151,6 +243,13 @@ async function translateTexts(texts, targetLanguage) {
     output.push(...parsed);
   }
   return output;
+}
+
+function getOpenAIClient() {
+  openaiClient ??= new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+  return openaiClient;
 }
 
 function chunkTexts(texts) {
@@ -207,6 +306,21 @@ function encodeXml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+function normalizePdfText(value) {
+  return value
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\u2013|\u2014/g, "-");
+}
+
+function safeTextWidth(font, text, fontSize) {
+  try {
+    return font.widthOfTextAtSize(text, fontSize);
+  } catch {
+    return font.widthOfTextAtSize(normalizePdfText(text), fontSize);
+  }
 }
 
 function getExtension(fileName = "") {
