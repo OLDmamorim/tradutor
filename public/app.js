@@ -17,6 +17,10 @@ function setFile(file) {
   fileTitle.textContent = file.name;
   fileMeta.textContent = `${formatBytes(file.size)} - ${file.type || "documento"}`;
   resultArea.hidden = true;
+  progressArea.hidden = true;
+  statusPill.textContent = "Pronto";
+  downloadLink.removeAttribute("href");
+  downloadLink.removeAttribute("download");
 }
 
 function formatBytes(bytes) {
@@ -72,6 +76,7 @@ form.addEventListener("submit", async (event) => {
 
   if (file.size > maxBrowserPayloadMb * 1024 * 1024) {
     statusPill.textContent = "Ficheiro grande";
+    resultArea.hidden = true;
     progressArea.hidden = false;
     progressText.textContent = `Nesta versao, use ficheiros ate ${maxBrowserPayloadMb} MB.`;
     return;
@@ -95,6 +100,7 @@ form.addEventListener("submit", async (event) => {
 
     const payload = await response.json();
     if (!response.ok) {
+      resultArea.hidden = true;
       throw new Error(payload.error || "Nao foi possivel traduzir o documento.");
     }
 
@@ -106,6 +112,7 @@ form.addEventListener("submit", async (event) => {
     statusPill.textContent = "Concluido";
   } catch (error) {
     statusPill.textContent = "Erro";
+    resultArea.hidden = true;
     progressArea.hidden = false;
     progressText.textContent = error.message;
   } finally {
