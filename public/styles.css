@@ -1,0 +1,253 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f5ef;
+  --surface: #ffffff;
+  --text: #19211f;
+  --muted: #66706a;
+  --line: #d9ded8;
+  --accent: #176f6b;
+  --accent-strong: #0f4f4c;
+  --accent-soft: #dff0ec;
+  --shadow: 0 20px 70px rgba(25, 33, 31, 0.12);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    linear-gradient(135deg, rgba(23, 111, 107, 0.12), transparent 42%),
+    var(--bg);
+  color: var(--text);
+}
+
+.app-shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  min-height: 100vh;
+  display: grid;
+  align-items: center;
+  padding: 40px 0;
+}
+
+.workspace {
+  background: var(--surface);
+  border: 1px solid rgba(25, 33, 31, 0.08);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: clamp(24px, 5vw, 48px);
+}
+
+.brand-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: flex-start;
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3.9rem);
+  line-height: 0.95;
+  margin: 0;
+}
+
+.status-pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 8px 13px;
+}
+
+.translator-form {
+  display: grid;
+  gap: 22px;
+}
+
+.drop-zone {
+  display: grid;
+  place-items: center;
+  min-height: 260px;
+  border: 1.5px dashed #aeb9b3;
+  border-radius: 8px;
+  background: #fbfcfa;
+  cursor: pointer;
+  padding: 30px;
+  text-align: center;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.drop-zone:hover,
+.drop-zone.is-dragging {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.drop-zone input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drop-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 2rem;
+  line-height: 1;
+  margin-bottom: 18px;
+}
+
+.drop-title {
+  font-size: 1.4rem;
+  font-weight: 750;
+  margin-bottom: 6px;
+}
+
+.drop-meta {
+  color: var(--muted);
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 14px;
+  align-items: end;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+select,
+button,
+.download-button {
+  min-height: 48px;
+  border-radius: 8px;
+  font: inherit;
+}
+
+select {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  padding: 0 14px;
+}
+
+.primary-button,
+.download-button {
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 750;
+  padding: 0 24px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-grid;
+  place-items: center;
+}
+
+.primary-button:hover,
+.download-button:hover {
+  background: var(--accent-strong);
+}
+
+.primary-button:disabled {
+  background: #91aaa5;
+  cursor: wait;
+}
+
+.progress-area,
+.result-area {
+  margin-top: 22px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e9e4;
+  overflow: hidden;
+}
+
+.progress-bar span {
+  display: block;
+  width: 35%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: progress 1.3s ease-in-out infinite;
+}
+
+#progress-text,
+#result-title {
+  color: var(--muted);
+  margin: 12px 0 0;
+}
+
+.result-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+@keyframes progress {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(310%);
+  }
+}
+
+@media (max-width: 680px) {
+  .brand-row,
+  .control-grid,
+  .result-area {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .status-pill,
+  .primary-button,
+  .download-button {
+    width: 100%;
+  }
+
+  .drop-zone {
+    min-height: 220px;
+  }
+}

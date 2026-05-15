@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tradutor de Documentos</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <div class="brand-row">
+          <div>
+            <p class="eyebrow">Traducao documental</p>
+            <h1 id="page-title">Traduzir ficheiro</h1>
+          </div>
+          <span class="status-pill" id="status-pill">Pronto</span>
+        </div>
+
+        <form id="translator-form" class="translator-form">
+          <label class="drop-zone" for="document-file" id="drop-zone">
+            <input
+              id="document-file"
+              name="file"
+              type="file"
+              accept=".docx,.pptx,.xlsx,.txt"
+              required
+            />
+            <span class="drop-icon" aria-hidden="true">+</span>
+            <span class="drop-title" id="file-title">Carregar documento</span>
+            <span class="drop-meta" id="file-meta">DOCX, PPTX, XLSX ou TXT</span>
+          </label>
+
+          <div class="control-grid">
+            <label class="field">
+              <span>Idioma de destino</span>
+              <select id="target-language" name="targetLanguage" required>
+                <option value="Portuguese (Portugal)">Portugues (Portugal)</option>
+                <option value="English">English</option>
+                <option value="Spanish">Espanhol</option>
+                <option value="French">Frances</option>
+                <option value="German">Alemao</option>
+                <option value="Italian">Italiano</option>
+                <option value="Dutch">Neerlandes</option>
+              </select>
+            </label>
+
+            <button class="primary-button" type="submit" id="submit-button">
+              Traduzir
+            </button>
+          </div>
+        </form>
+
+        <div class="progress-area" id="progress-area" hidden>
+          <div class="progress-bar" aria-hidden="true">
+            <span id="progress-fill"></span>
+          </div>
+          <p id="progress-text">A preparar o documento...</p>
+        </div>
+
+        <div class="result-area" id="result-area" hidden>
+          <p id="result-title">Documento traduzido</p>
+          <a class="download-button" id="download-link" href="#">Descarregar</a>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
