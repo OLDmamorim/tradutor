@@ -7,9 +7,10 @@ Aplicacao web para traduzir documentos mantendo a estrutura original sempre que 
 - `.docx`: traduz texto em corpo, cabecalhos, rodapes, notas e comentarios.
 - `.pptx`: traduz texto em slides, notas e layouts.
 - `.xlsx`: traduz strings partilhadas e texto inline nas folhas.
+- `.pdf`: traduz PDFs com texto pesquisavel, usando a pagina original como fundo e escrevendo a traducao por cima.
 - `.txt`: traduz texto simples.
 
-PDF fica preparado como proxima fase. Manter layout de PDF com fidelidade alta exige um fluxo proprio de OCR/layout ou conversao para DOCX antes da traducao.
+PDFs digitalizados como imagem ainda precisam de OCR numa fase seguinte.
 
 ## Como correr localmente
 
