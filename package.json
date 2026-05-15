@@ -11,6 +11,8 @@
   "dependencies": {
     "@netlify/functions": "^3.0.0",
     "jszip": "^3.10.1",
-    "openai": "^6.0.0"
+    "openai": "^6.0.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.7.284"
   }
 }
