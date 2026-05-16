@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-const model = process.env.AI_MODEL || "deepseek-chat";
+const model = process.env.AI_MODEL || "llama-3.3-70b-versatile";
 let openaiClient;
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -259,7 +259,7 @@ async function translateTexts(texts, targetLanguage) {
 function getAIClient() {
   openaiClient ??= new OpenAI({
     apiKey: process.env.AI_API_KEY,
-    baseURL: process.env.AI_BASE_URL || "https://api.deepseek.com",
+    baseURL: process.env.AI_BASE_URL || "https://api.groq.com/openai/v1",
   });
   return openaiClient;
 }
