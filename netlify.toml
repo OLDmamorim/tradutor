@@ -4,7 +4,7 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "nft"
+  node_bundler = "esbuild"
 
 [[headers]]
   for = "/*"

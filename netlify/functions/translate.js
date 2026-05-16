@@ -1,10 +1,10 @@
 import JSZip from "jszip";
 import OpenAI from "openai";
+import PDFParser from "pdf2json";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 const model = process.env.OPENAI_MODEL || "gpt-5.2";
 let openaiClient;
-let pdfjsLib;
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -105,45 +105,48 @@ async function translateOfficeFile(buffer, extension, targetLanguage) {
 }
 
 async function translatePdfFile(buffer, targetLanguage) {
-  const pdfjs = await getPdfJs();
-  const bytes = new Uint8Array(buffer);
-  const sourcePdf = await pdfjs.getDocument({
-    data: bytes,
-    disableFontFace: true,
-    isEvalSupported: false,
-    useWorkerFetch: false,
-  }).promise;
+  const parsedPages = await parsePdfPages(buffer);
 
   const outputPdf = await PDFDocument.create();
-  const sourceForEmbedding = await PDFDocument.load(buffer);
+  const sourceDoc = await PDFDocument.load(buffer);
   const embeddedPages = await outputPdf.embedPdf(
     buffer,
-    Array.from({ length: sourceForEmbedding.getPageCount() }, (_, index) => index),
+    Array.from({ length: sourceDoc.getPageCount() }, (_, i) => i),
   );
   const font = await outputPdf.embedFont(StandardFonts.Helvetica);
   let translatedCount = 0;
 
-  for (let pageIndex = 0; pageIndex < sourcePdf.numPages; pageIndex += 1) {
-    const pdfPage = await sourcePdf.getPage(pageIndex + 1);
-    const viewport = pdfPage.getViewport({ scale: 1 });
-    const page = outputPdf.addPage([viewport.width, viewport.height]);
+  for (let pageIndex = 0; pageIndex < parsedPages.length; pageIndex += 1) {
+    const parsedPage = parsedPages[pageIndex];
+    const sourcePage = sourceDoc.getPage(pageIndex);
+    const pageWidthPts = sourcePage.getWidth();
+    const pageHeightPts = sourcePage.getHeight();
+
+    // Scale factors: pdf2json units -> PDF points
+    const scaleX = pageWidthPts / (parsedPage.Width || 1);
+    const scaleY = pageHeightPts / (parsedPage.Height || 1);
+
+    const items = [];
+    for (const block of parsedPage.Texts || []) {
+      const rawText = (block.R || []).map((r) => decodePdfText(r.T)).join("");
+      if (!shouldTranslatePdfText(rawText)) continue;
+      const fontSize = Math.max(6, Math.min(block.R?.[0]?.TS?.[1] ?? 12, 14));
+      items.push({
+        text: rawText,
+        x: block.x * scaleX,
+        // pdf2json Y=0 is at top; pdf-lib Y=0 is at bottom — flip and shift by fontSize
+        y: pageHeightPts - block.y * scaleY - fontSize,
+        fontSize,
+      });
+    }
+
+    const page = outputPdf.addPage([pageWidthPts, pageHeightPts]);
     page.drawPage(embeddedPages[pageIndex], {
       x: 0,
       y: 0,
-      width: viewport.width,
-      height: viewport.height,
+      width: pageWidthPts,
+      height: pageHeightPts,
     });
-
-    const content = await pdfPage.getTextContent();
-    const items = content.items
-      .filter((item) => typeof item.str === "string" && shouldTranslatePdfText(item.str))
-      .map((item) => ({
-        text: item.str,
-        x: item.transform[4],
-        y: item.transform[5],
-        width: Math.max(item.width || 0, 8),
-        height: Math.max(Math.abs(item.height || item.transform[3] || 10), 7),
-      }));
 
     if (items.length === 0) continue;
 
@@ -155,24 +158,23 @@ async function translatePdfFile(buffer, targetLanguage) {
 
     items.forEach((item, index) => {
       const text = normalizePdfText(translations[index] || item.text);
-      const fontSize = Math.max(6, Math.min(item.height * 0.92, 14));
-      const translatedWidth = safeTextWidth(font, text, fontSize);
+      const translatedWidth = safeTextWidth(font, text, item.fontSize);
       const coverWidth = Math.min(
-        viewport.width - item.x,
-        Math.max(item.width, translatedWidth) + 5,
+        pageWidthPts - item.x,
+        Math.max(translatedWidth, 8) + 5,
       );
 
       page.drawRectangle({
         x: Math.max(0, item.x - 1),
         y: Math.max(0, item.y - 2),
         width: coverWidth,
-        height: item.height + 4,
+        height: item.fontSize + 4,
         color: rgb(1, 1, 1),
       });
       page.drawText(text, {
         x: item.x,
         y: item.y,
-        size: fontSize,
+        size: item.fontSize,
         font,
         color: rgb(0.05, 0.05, 0.05),
       });
@@ -181,19 +183,32 @@ async function translatePdfFile(buffer, targetLanguage) {
 
   if (translatedCount === 0) {
     throw new Error(
-      `Este PDF nao tem texto pesquisavel ou nao tem texto traduzivel. PDF.js ${pdfjs.version || "unknown"}.`,
+      "Este PDF nao tem texto pesquisavel ou nao tem texto traduzivel.",
     );
   }
 
   return outputPdf.save();
 }
 
-async function getPdfJs() {
-  if (!pdfjsLib) {
-    const module = await import("pdfjs-dist/legacy/build/pdf.js");
-    pdfjsLib = module.default ?? module;
+function parsePdfPages(buffer) {
+  return new Promise((resolve, reject) => {
+    const parser = new PDFParser(null, 1);
+    parser.on("pdfParser_dataError", (err) => {
+      reject(new Error(err.parserError || "Erro ao ler o PDF."));
+    });
+    parser.on("pdfParser_dataReady", (data) => {
+      resolve(data.Pages || []);
+    });
+    parser.parseBuffer(buffer);
+  });
+}
+
+function decodePdfText(encoded) {
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return encoded;
   }
-  return pdfjsLib;
 }
 
 function isTranslatableXmlPath(path, extension) {
@@ -333,9 +348,9 @@ function encodeXml(value) {
 
 function normalizePdfText(value) {
   return value
-    .replace(/[\u2018\u2019]/g, "'")
-    .replace(/[\u201c\u201d]/g, '"')
-    .replace(/\u2013|\u2014/g, "-");
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/–|—/g, "-");
 }
 
 function safeTextWidth(font, text, fontSize) {
