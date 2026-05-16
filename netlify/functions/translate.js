@@ -229,30 +229,30 @@ function applyTranslations(xml, translations) {
 }
 
 async function translateTexts(texts, targetLanguage) {
-  const output = [];
   const client = getAIClient();
-  for (const chunk of chunkTexts(texts)) {
-    const response = await client.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: "system",
-          content:
-            "You translate document text. Preserve numbers, placeholders, punctuation, whitespace intent, formatting markers, proper names, addresses, company names, tax IDs, invoice IDs, and URLs when appropriate. Return only a JSON array of strings with the same length and order as the input.",
-        },
-        {
-          role: "user",
-          content: `Translate every item to ${targetLanguage}.\n\n${JSON.stringify(chunk)}`,
-        },
-      ],
-    });
+  const chunks = chunkTexts(texts);
+  const systemPrompt =
+    "You translate document text. Preserve numbers, placeholders, punctuation, whitespace intent, formatting markers, proper names, addresses, company names, tax IDs, invoice IDs, and URLs when appropriate. Return only a JSON array of strings with the same length and order as the input.";
 
-    const parsed = parseJsonArray(response.choices[0].message.content);
-    if (parsed.length !== chunk.length) {
-      throw new Error("A traducao devolveu uma quantidade inesperada de segmentos.");
-    }
-    output.push(...parsed);
-  }
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      client.chat.completions.create({
+        model,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Translate every item to ${targetLanguage}.\n\n${JSON.stringify(chunk)}` },
+        ],
+      }).then((response) => {
+        const parsed = parseJsonArray(response.choices[0].message.content);
+        if (parsed.length !== chunk.length) {
+          throw new Error("A traducao devolveu uma quantidade inesperada de segmentos.");
+        }
+        return parsed;
+      }),
+    ),
+  );
+
+  const output = results.flat();
   return output;
 }
 
