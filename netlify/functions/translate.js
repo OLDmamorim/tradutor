@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-const model = process.env.AI_MODEL || "llama3-70b-8192";
+const model = process.env.AI_MODEL || "llama-3.1-8b-instant";
 let openaiClient;
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
