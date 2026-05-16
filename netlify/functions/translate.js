@@ -109,7 +109,7 @@ async function translatePdfFile(buffer, targetLanguage) {
 
   await pdfParse(buffer, {
     pagerender: async (page) => {
-      const viewport = page.getViewport({ scale: 1 });
+      const viewport = page.getViewport(1.0);
       const textContent = await page.getTextContent();
       collectedPages.push({
         width: viewport.width,
