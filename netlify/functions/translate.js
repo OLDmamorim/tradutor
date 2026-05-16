@@ -109,7 +109,6 @@ async function translatePdfFile(buffer, targetLanguage) {
   const bytes = new Uint8Array(buffer);
   const sourcePdf = await pdfjs.getDocument({
     data: bytes,
-    disableWorker: true,
     disableFontFace: true,
     isEvalSupported: false,
     useWorkerFetch: false,
@@ -193,6 +192,7 @@ async function getPdfJs() {
   if (!pdfjsLib) {
     const module = await import("pdfjs-dist/legacy/build/pdf.js");
     pdfjsLib = module.default ?? module;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "";
   }
   return pdfjsLib;
 }
