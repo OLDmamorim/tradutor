@@ -1,6 +1,9 @@
+import { createRequire } from "module";
 import JSZip from "jszip";
 import OpenAI from "openai";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
+
+const _require = createRequire(import.meta.url);
 
 const model = process.env.OPENAI_MODEL || "gpt-5.2";
 let openaiClient;
@@ -192,6 +195,9 @@ async function getPdfJs() {
   if (!pdfjsLib) {
     const module = await import("pdfjs-dist/legacy/build/pdf.js");
     pdfjsLib = module.default ?? module;
+    pdfjsLib.GlobalWorkerOptions.workerSrc = _require.resolve(
+      "pdfjs-dist/legacy/build/pdf.worker.js",
+    );
   }
   return pdfjsLib;
 }
