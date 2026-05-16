@@ -192,7 +192,6 @@ async function getPdfJs() {
   if (!pdfjsLib) {
     const module = await import("pdfjs-dist/legacy/build/pdf.js");
     pdfjsLib = module.default ?? module;
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "";
   }
   return pdfjsLib;
 }
