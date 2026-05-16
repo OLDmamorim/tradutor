@@ -189,7 +189,10 @@ async function translatePdfFile(buffer, targetLanguage) {
 }
 
 async function getPdfJs() {
-  pdfjsLib ??= await import("pdfjs-dist/legacy/build/pdf.mjs");
+  if (!pdfjsLib) {
+    const module = await import("pdfjs-dist/legacy/build/pdf.js");
+    pdfjsLib = module.default ?? module;
+  }
   return pdfjsLib;
 }
 
