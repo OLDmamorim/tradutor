@@ -285,16 +285,26 @@ function chunkTexts(texts) {
 }
 
 function parseJsonArray(value) {
-  const trimmed = value.trim();
+  // Strip markdown code fences the model may add
+  let text = value.trim().replace(/^```[\w]*\r?\n?/m, "").replace(/\r?\n?```\s*$/m, "").trim();
   try {
-    return JSON.parse(trimmed);
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+    const first = Object.values(parsed)[0];
+    if (Array.isArray(first)) return first;
   } catch {
-    const start = trimmed.indexOf("[");
-    const end = trimmed.lastIndexOf("]");
-    if (start >= 0 && end > start) {
-      return JSON.parse(trimmed.slice(start, end + 1));
+    // fall through to extraction
+  }
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start >= 0 && end > start) {
+    try {
+      return JSON.parse(text.slice(start, end + 1));
+    } catch {
+      // fall through
     }
-    throw new Error("Nao foi possivel ler a resposta da traducao.");
+  }
+  throw new Error("Nao foi possivel ler a resposta da traducao.");
   }
 }
 
