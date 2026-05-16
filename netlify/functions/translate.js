@@ -1,11 +1,10 @@
 import JSZip from "jszip";
 import OpenAI from "openai";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const model = process.env.OPENAI_MODEL || "gpt-5.2";
 let openaiClient;
-const pdfjsVersion = pdfjsLib.version || "unknown";
+let pdfjsLib;
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -106,8 +105,9 @@ async function translateOfficeFile(buffer, extension, targetLanguage) {
 }
 
 async function translatePdfFile(buffer, targetLanguage) {
+  const pdfjs = await getPdfJs();
   const bytes = new Uint8Array(buffer);
-  const sourcePdf = await pdfjsLib.getDocument({
+  const sourcePdf = await pdfjs.getDocument({
     data: bytes,
     disableFontFace: true,
     isEvalSupported: false,
@@ -181,11 +181,16 @@ async function translatePdfFile(buffer, targetLanguage) {
 
   if (translatedCount === 0) {
     throw new Error(
-      `Este PDF nao tem texto pesquisavel ou nao tem texto traduzivel. PDF.js ${pdfjsVersion}.`,
+      `Este PDF nao tem texto pesquisavel ou nao tem texto traduzivel. PDF.js ${pdfjs.version || "unknown"}.`,
     );
   }
 
   return outputPdf.save();
+}
+
+async function getPdfJs() {
+  pdfjsLib ??= await import("pdfjs-dist/legacy/build/pdf.mjs");
+  return pdfjsLib;
 }
 
 function isTranslatableXmlPath(path, extension) {
