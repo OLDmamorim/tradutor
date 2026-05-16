@@ -5,6 +5,7 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const model = process.env.OPENAI_MODEL || "gpt-5.2";
 let openaiClient;
+const pdfjsVersion = pdfjsLib.version || "unknown";
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -68,7 +69,13 @@ export default async (request) => {
     });
   } catch (error) {
     console.error(error);
-    return json({ error: error.message || "Erro inesperado ao traduzir." }, 500);
+    return json(
+      {
+        error: error.message || "Erro inesperado ao traduzir.",
+        source: "translate-function",
+      },
+      500,
+    );
   }
 };
 
@@ -129,7 +136,7 @@ async function translatePdfFile(buffer, targetLanguage) {
 
     const content = await pdfPage.getTextContent();
     const items = content.items
-      .filter((item) => typeof item.str === "string" && shouldTranslate(item.str))
+      .filter((item) => typeof item.str === "string" && shouldTranslatePdfText(item.str))
       .map((item) => ({
         text: item.str,
         x: item.transform[4],
@@ -174,7 +181,7 @@ async function translatePdfFile(buffer, targetLanguage) {
 
   if (translatedCount === 0) {
     throw new Error(
-      "Este PDF nao tem texto pesquisavel. Para PDFs digitalizados precisamos de adicionar OCR.",
+      `Este PDF nao tem texto pesquisavel ou nao tem texto traduzivel. PDF.js ${pdfjsVersion}.`,
     );
   }
 
@@ -288,6 +295,14 @@ function parseJsonArray(value) {
 
 function shouldTranslate(text) {
   return /[\p{L}\p{N}]/u.test(text) && text.trim().length > 0;
+}
+
+function shouldTranslatePdfText(text) {
+  const trimmed = text.trim();
+  if (!/[\p{L}]/u.test(trimmed)) return false;
+  if (trimmed.length < 2) return false;
+  if (/^[\d\s.,:/\\\-+()%]+$/.test(trimmed)) return false;
+  return true;
 }
 
 function decodeXml(value) {
