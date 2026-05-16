@@ -4,8 +4,7 @@
 
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild"
-  external_node_modules = ["pdfjs-dist"]
+  node_bundler = "nft"
 
 [[headers]]
   for = "/*"
