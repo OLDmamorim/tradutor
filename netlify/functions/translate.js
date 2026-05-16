@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
-const model = process.env.OPENAI_MODEL || "gpt-5.2";
+const model = process.env.AI_MODEL || "deepseek-chat";
 let openaiClient;
 const officeMime = {
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -17,8 +17,8 @@ export default async (request) => {
     return json({ error: "Metodo nao suportado." }, 405);
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    return json({ error: "Falta configurar OPENAI_API_KEY no Netlify." }, 500);
+  if (!process.env.AI_API_KEY) {
+    return json({ error: "Falta configurar AI_API_KEY no Netlify." }, 500);
   }
 
   try {
@@ -230,18 +230,24 @@ function applyTranslations(xml, translations) {
 
 async function translateTexts(texts, targetLanguage) {
   const output = [];
-  const client = getOpenAIClient();
+  const client = getAIClient();
   for (const chunk of chunkTexts(texts)) {
-    const response = await client.responses.create({
+    const response = await client.chat.completions.create({
       model,
-      instructions:
-        "You translate document text. Preserve numbers, placeholders, punctuation, whitespace intent, formatting markers, proper names, addresses, company names, tax IDs, invoice IDs, and URLs when appropriate. Return only a JSON array of strings with the same length and order as the input.",
-      input: `Translate every item to ${targetLanguage}.\n\n${JSON.stringify(
-        chunk,
-      )}`,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You translate document text. Preserve numbers, placeholders, punctuation, whitespace intent, formatting markers, proper names, addresses, company names, tax IDs, invoice IDs, and URLs when appropriate. Return only a JSON array of strings with the same length and order as the input.",
+        },
+        {
+          role: "user",
+          content: `Translate every item to ${targetLanguage}.\n\n${JSON.stringify(chunk)}`,
+        },
+      ],
     });
 
-    const parsed = parseJsonArray(response.output_text);
+    const parsed = parseJsonArray(response.choices[0].message.content);
     if (parsed.length !== chunk.length) {
       throw new Error("A traducao devolveu uma quantidade inesperada de segmentos.");
     }
@@ -250,9 +256,10 @@ async function translateTexts(texts, targetLanguage) {
   return output;
 }
 
-function getOpenAIClient() {
+function getAIClient() {
   openaiClient ??= new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: process.env.AI_API_KEY,
+    baseURL: process.env.AI_BASE_URL || "https://api.deepseek.com",
   });
   return openaiClient;
 }
