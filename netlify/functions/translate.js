@@ -109,6 +109,7 @@ async function translatePdfFile(buffer, targetLanguage) {
   const bytes = new Uint8Array(buffer);
   const sourcePdf = await pdfjs.getDocument({
     data: bytes,
+    disableWorker: true,
     disableFontFace: true,
     isEvalSupported: false,
     useWorkerFetch: false,
